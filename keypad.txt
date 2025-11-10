@@ -1,1 +1,58 @@
-"//keypad" 
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity keypad is
+    port (
+        clk       : in  STD_LOGIC;
+        rst       : in  STD_LOGIC;
+        Row       : out STD_LOGIC_VECTOR(3 downto 0);
+        Col       : in  STD_LOGIC_VECTOR(3 downto 0);
+        Key_code  : out STD_LOGIC_VECTOR(3 downto 0);
+        Key_valid : out STD_LOGIC
+    );
+end keypad;
+
+architecture Behavioral of keypad is
+    signal state : integer range 0 to 3 := 0;
+begin
+    process(clk, rst)
+    begin
+        if rst = '1' then
+            Row <= "1111";
+            Key_code <= (others => '0');
+            Key_valid <= '0';
+            state <= 0;
+        elsif rising_edge(clk) then
+            case state is
+                when 0 =>
+                    Row <= "1110";
+                    if Col(0) = '0' then Key_code <= "0000"; Key_valid <= '1'; state <= 1; end if;
+                    if Col(1) = '0' then Key_code <= "0001"; Key_valid <= '1'; state <= 1; end if;
+                    if Col(2) = '0' then Key_code <= "0010"; Key_valid <= '1'; state <= 1; end if;
+                    if Col(3) = '0' then Key_code <= "0011"; Key_valid <= '1'; state <= 1; end if;
+                when 1 =>
+                    Row <= "1101";
+                    if Col(0) = '0' then Key_code <= "0100"; Key_valid <= '1'; state <= 2; end if;
+                    if Col(1) = '0' then Key_code <= "0101"; Key_valid <= '1'; state <= 2; end if;
+                    if Col(2) = '0' then Key_code <= "0110"; Key_valid <= '1'; state <= 2; end if;
+                    if Col(3) = '0' then Key_code <= "0111"; Key_valid <= '1'; state <= 2; end if;
+                when 2 =>
+                    Row <= "1011";
+                    if Col(0) = '0' then Key_code <= "1000"; Key_valid <= '1'; state <= 3; end if;
+                    if Col(1) = '0' then Key_code <= "1001"; Key_valid <= '1'; state <= 3; end if;
+                    if Col(2) = '0' then Key_code <= "1010"; Key_valid <= '1'; state <= 3; end if;
+                    if Col(3) = '0' then Key_code <= "1011"; Key_valid <= '1'; state <= 3; end if;
+                when 3 =>
+                    Row <= "0111";
+                    if Col(0) = '0' then Key_code <= "1100"; Key_valid <= '1'; state <= 0; end if;
+                    if Col(1) = '0' then Key_code <= "1101"; Key_valid <= '1'; state <= 0; end if;
+                    if Col(2) = '0' then Key_code <= "1110"; Key_valid <= '1'; state <= 0; end if;
+                    if Col(3) = '0' then Key_code <= "1111"; Key_valid <= '1'; state <= 0; end if;
+                when others =>
+                    state <= 0;
+            end case;
+        end if;
+    end process;
+end Behavioral;
+
