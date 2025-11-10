@@ -1,1 +1,62 @@
-"//lcd_alt" 
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+entity lcd_simple is
+    Port (
+        clk   : in  STD_LOGIC;
+        rst   : in  STD_LOGIC;
+        lcd_rs : out STD_LOGIC;
+        lcd_en : out STD_LOGIC;
+        lcd_data : out STD_LOGIC_VECTOR(7 downto 0)
+    );
+end lcd_simple;
+
+architecture Behavioral of lcd_simple is
+    signal count : STD_LOGIC_VECTOR(23 downto 0) := (others => '0');
+    signal state : INTEGER range 0 to 5 := 0;
+begin
+    process(clk, rst)
+    begin
+        if rst = '1' then
+            count <= (others => '0');
+            state <= 0;
+        elsif rising_edge(clk) then
+            count <= count + 1;
+            if count = X"FFFFF" then  -- Slow down for LCD timing
+                count <= (others => '0');
+                case state is
+                    when 0 =>
+                        lcd_rs <= '0';
+                        lcd_en <= '1';
+                        lcd_data <= "00111000";  -- Function Set
+                        state <= 1;
+                    when 1 =>
+                        lcd_rs <= '0';
+                        lcd_en <= '1';
+                        lcd_data <= "00001100";  -- Display ON
+                        state <= 2;
+                    when 2 =>
+                        lcd_rs <= '0';
+                        lcd_en <= '1';
+                        lcd_data <= "00000001";  -- Clear Display
+                        state <= 3;
+                    when 3 =>
+                        lcd_rs <= '1';
+                        lcd_en <= '1';
+                        lcd_data <= "01001001";  -- ASCII 'I'
+                        state <= 4;
+                    when 4 =>
+                        lcd_rs <= '1';
+                        lcd_en <= '1';
+                        lcd_data <= "01010100";  -- ASCII 'T'
+                        state <= 5;
+                    when others =>
+                        lcd_en <= '0';
+                end case;
+            end if;
+        end if;
+    end process;
+end Behavioral;
+
