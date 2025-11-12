@@ -1,62 +1,126 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.STD_LOGIC_ARITH.ALL;
-use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
-entity lcd_simple is
+entity lcddd is
     Port (
-        clk   : in  STD_LOGIC;
-        rst   : in  STD_LOGIC;
-        lcd_rs : out STD_LOGIC;
-        lcd_en : out STD_LOGIC;
-        lcd_data : out STD_LOGIC_VECTOR(7 downto 0)
+        clk_12Mhz : in  STD_LOGIC;
+        lcd_rs    : out STD_LOGIC;
+        lcd_en    : out STD_LOGIC;
+        lcd_data  : out STD_LOGIC_VECTOR (7 downto 0);
+        rst       : in  STD_LOGIC
     );
-end lcd_simple;
+end lcddd;
 
-architecture Behavioral of lcd_simple is
-    signal count : STD_LOGIC_VECTOR(23 downto 0) := (others => '0');
-    signal state : INTEGER range 0 to 5 := 0;
+architecture Behavioral of lcddd is
+    signal div       : unsigned(19 downto 0) := (others => '0');
+    signal clk_t1    : std_logic := '0';
+    signal lcd_rs_s  : std_logic := '0';
+    signal lcd_en_s  : std_logic := '0';
+    signal dataout_s : std_logic_vector(7 downto 0) := (others => '0');
+
+    type state is (init0, init1, init2, init3, set_ddram, d0, d1, d2, d3, done, hold);
+    signal ps, nx : state := init0;
 begin
-    process(clk, rst)
+    lcd_en   <= lcd_en_s;
+    lcd_rs   <= lcd_rs_s;
+    lcd_data <= dataout_s;
+
+    -- Clock divider
+    process(clk_12Mhz, rst)
     begin
         if rst = '1' then
-            count <= (others => '0');
-            state <= 0;
-        elsif rising_edge(clk) then
-            count <= count + 1;
-            if count = X"FFFFF" then  -- Slow down for LCD timing
-                count <= (others => '0');
-                case state is
-                    when 0 =>
-                        lcd_rs <= '0';
-                        lcd_en <= '1';
-                        lcd_data <= "00111000";  -- Function Set
-                        state <= 1;
-                    when 1 =>
-                        lcd_rs <= '0';
-                        lcd_en <= '1';
-                        lcd_data <= "00001100";  -- Display ON
-                        state <= 2;
-                    when 2 =>
-                        lcd_rs <= '0';
-                        lcd_en <= '1';
-                        lcd_data <= "00000001";  -- Clear Display
-                        state <= 3;
-                    when 3 =>
-                        lcd_rs <= '1';
-                        lcd_en <= '1';
-                        lcd_data <= "01001001";  -- ASCII 'I'
-                        state <= 4;
-                    when 4 =>
-                        lcd_rs <= '1';
-                        lcd_en <= '1';
-                        lcd_data <= "01010100";  -- ASCII 'T'
-                        state <= 5;
-                    when others =>
-                        lcd_en <= '0';
-                end case;
-            end if;
+            div <= (others => '0');
+        elsif rising_edge(clk_12Mhz) then
+            div <= div + 1;
         end if;
     end process;
-end Behavioral;
 
+    clk_t1 <= div(19);
+
+    -- State register
+    process(clk_t1, rst)
+    begin
+        if rst = '1' then
+            ps <= init0;
+        elsif rising_edge(clk_t1) then
+            ps <= nx;
+        end if;
+    end process;
+
+    -- Next-state and output logic
+    process(ps, clk_t1)
+    begin
+        nx <= ps;
+        case ps is
+            when init0 =>
+                lcd_rs_s <= '0';
+                dataout_s <= "00111000";
+                lcd_en_s <= clk_t1;
+                nx <= init1;
+
+            when init1 =>
+                lcd_rs_s <= '0';
+                dataout_s <= "00001100";
+                lcd_en_s <= clk_t1;
+                nx <= init2;
+
+            when init2 =>
+                lcd_rs_s <= '0';
+                dataout_s <= "00000001";
+                lcd_en_s <= clk_t1;
+                nx <= init3;
+
+            when init3 =>
+                lcd_rs_s <= '0';
+                dataout_s <= "00000110";
+                lcd_en_s <= clk_t1;
+                nx <= set_ddram;
+
+            when set_ddram =>
+                lcd_rs_s <= '0';
+                dataout_s <= "10000000";
+                lcd_en_s <= clk_t1;
+                nx <= d0;
+
+            when d0 =>
+                lcd_rs_s <= '1';
+                dataout_s <= "01001001"; -- I
+                lcd_en_s <= clk_t1;
+                nx <= d1;
+
+            when d1 =>
+                lcd_rs_s <= '1';
+                dataout_s <= "00110010"; -- 2
+                lcd_en_s <= clk_t1;
+                nx <= d2;
+
+            when d2 =>
+                lcd_rs_s <= '1';
+                dataout_s <= "01001001"; -- I
+                lcd_en_s <= clk_t1;
+                nx <= d3;
+
+            when d3 =>
+                lcd_rs_s <= '1';
+                dataout_s <= "01010100"; -- T
+                lcd_en_s <= clk_t1;
+                nx <= done;
+
+            when done =>
+                lcd_rs_s <= '0';
+                dataout_s <= "00000010";
+                lcd_en_s <= clk_t1;
+                nx <= hold;
+
+            when hold =>
+                lcd_en_s <= '1';
+                lcd_rs_s <= '0';
+                dataout_s <= "00000010";
+
+            when others =>
+                nx <= init0;
+        end case;
+    end process;
+
+end Behavioral;
